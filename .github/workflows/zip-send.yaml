@@ -1,57 +1,23 @@
 name: Zip and Send .bru Files to Slack
 
 on:
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - closed  # Runs when a PR is closed
 
 jobs:
   zip-and-send:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true  # Ensures it only runs when PR is merged
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Find and Zip .bru Files
+      - name: Find and zip .bru files
         run: |
-          mkdir -p zipped
-          zip -r zipped/api-collections.zip $(find . -name '*.bru')
+          find . -name "*.bru" -print | zip api_tests.zip -@
 
-      - name: Upload ZIP as an Artifact (Optional)
-        uses: actions/upload-artifact@v3
-        with:
-          name: api-collections
-          path: zipped/api-collections.zip
-
-      - name: Send to Slack (Using Webhook)
-        if: env.SLACK_WEBHOOK_URL != ''
+      - name: Upload .bru files to Slack
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          curl -X POST -H 'Content-type: application/json' --data '{
-            "text": "Latest API collections (PR merged to main):",
-            "attachments": [
-              {
-                "text": "Download the latest .bru files:",
-                "actions": [
-                  {
-                    "type": "button",
-                    "text": "Download ZIP",
-                    "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  }
-                ]
-              }
-            ]
-          }' $SLACK_WEBHOOK_URL
-
-      - name: Send ZIP to Slack (Using Bot Token)
-        if: env.SLACK_BOT_TOKEN != ''
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-        run: |
-          curl -F file=@zipped/api-collections.zip -F "channels=$SLACK_CHANNEL_ID" -H "Authorization: Bearer $SLACK_BOT_TOKEN" https://slack.com/api/files.upload
+          curl -F file=@api_tests.zip -F channels=#your-channel -H "Authorization: Bearer $SLACK_TOKEN" https://slack.com/api/files.upload
