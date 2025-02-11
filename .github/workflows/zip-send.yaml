@@ -2,16 +2,15 @@ name: Zip and Send .bru Files to Slack
 
 on:
   pull_request:
-    types:
-      - closed  # Trigger when PR is merged
-  push:
     branches:
-      - main  # Ensure it runs on main branch merges
+      - main
+    types:
+      - closed  # Runs when a PR is closed
 
 jobs:
   zip-and-send:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true  # Ensures it only runs when PR is merged
 
     steps:
       - name: Checkout Repository
