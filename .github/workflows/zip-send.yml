@@ -1,0 +1,58 @@
+name: Zip and Send .bru Files to Slack
+
+on:
+  pull_request:
+    types:
+      - closed  # Trigger when PR is merged
+  push:
+    branches:
+      - main  # Ensure it runs on main branch merges
+
+jobs:
+  zip-and-send:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Find and Zip .bru Files
+        run: |
+          mkdir -p zipped
+          zip -r zipped/api-collections.zip $(find . -name '*.bru')
+
+      - name: Upload ZIP as an Artifact (Optional)
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-collections
+          path: zipped/api-collections.zip
+
+      - name: Send to Slack (Using Webhook)
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data '{
+            "text": "Latest API collections (PR merged to main):",
+            "attachments": [
+              {
+                "text": "Download the latest .bru files:",
+                "actions": [
+                  {
+                    "type": "button",
+                    "text": "Download ZIP",
+                    "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                ]
+              }
+            ]
+          }' $SLACK_WEBHOOK_URL
+
+      - name: Send ZIP to Slack (Using Bot Token)
+        if: env.SLACK_BOT_TOKEN != ''
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          curl -F file=@zipped/api-collections.zip -F "channels=$SLACK_CHANNEL_ID" -H "Authorization: Bearer $SLACK_BOT_TOKEN" https://slack.com/api/files.upload
